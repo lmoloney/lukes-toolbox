@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "/workspaces/lukes-toolbox/fabric-sqlendpoint-dotnet/fabric-sql-analytics-endpoint-sample/fabric-sql-analytics-endpoint-sample.csproj": {}
+    "/Users/luke/Developer/lukes-toolbox/fabric-sqlendpoint-dotnet/fabric-sql-analytics-endpoint-sample/fabric-sql-analytics-endpoint-sample.csproj": {}
   },
   "projects": {
-    "/workspaces/lukes-toolbox/fabric-sqlendpoint-dotnet/fabric-sql-analytics-endpoint-sample/fabric-sql-analytics-endpoint-sample.csproj": {
+    "/Users/luke/Developer/lukes-toolbox/fabric-sqlendpoint-dotnet/fabric-sql-analytics-endpoint-sample/fabric-sql-analytics-endpoint-sample.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/workspaces/lukes-toolbox/fabric-sqlendpoint-dotnet/fabric-sql-analytics-endpoint-sample/fabric-sql-analytics-endpoint-sample.csproj",
+        "projectUniqueName": "/Users/luke/Developer/lukes-toolbox/fabric-sqlendpoint-dotnet/fabric-sql-analytics-endpoint-sample/fabric-sql-analytics-endpoint-sample.csproj",
         "projectName": "fabric-sql-analytics-endpoint-sample",
-        "projectPath": "/workspaces/lukes-toolbox/fabric-sqlendpoint-dotnet/fabric-sql-analytics-endpoint-sample/fabric-sql-analytics-endpoint-sample.csproj",
-        "packagesPath": "/home/vscode/.nuget/packages/",
-        "outputPath": "/workspaces/lukes-toolbox/fabric-sqlendpoint-dotnet/fabric-sql-analytics-endpoint-sample/obj/",
+        "projectPath": "/Users/luke/Developer/lukes-toolbox/fabric-sqlendpoint-dotnet/fabric-sql-analytics-endpoint-sample/fabric-sql-analytics-endpoint-sample.csproj",
+        "packagesPath": "/Users/luke/.nuget/packages/",
+        "outputPath": "/Users/luke/Developer/lukes-toolbox/fabric-sqlendpoint-dotnet/fabric-sql-analytics-endpoint-sample/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "/home/vscode/.nuget/NuGet/NuGet.Config"
+          "/Users/luke/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net9.0"
@@ -73,7 +73,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/9.0.102/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/9.0.102/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
