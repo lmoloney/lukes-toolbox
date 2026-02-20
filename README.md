@@ -40,3 +40,21 @@ python3 har-meta.py trace.har
 # Markdown companion file
 python3 har-meta.py trace.har --format markdown --archive-path /Volumes/JetDrive/archive/trace.har -o trace.har.md
 ```
+
+### dev-cleanup.sh
+
+Scan for reclaimable disk space in development repos. Finds `node_modules/` and `.venv/` directories in repos that haven't been committed to recently.
+
+```bash
+# Report what can be reclaimed (default: repos stale >30 days)
+./dev-cleanup.sh
+
+# Custom staleness threshold
+./dev-cleanup.sh --age-days 90
+
+# Actually delete stale directories
+./dev-cleanup.sh --delete
+
+# Scan a different directory
+./dev-cleanup.sh --source ~/Projects --age-days 60 --delete
+```

@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# dev-cleanup.sh — Find and optionally delete stale node_modules/ and .venv/
+# directories in repos that haven't been committed to in N days.
+
+SOURCE="${HOME}/Developer"
+AGE_DAYS=30
+DRY_RUN=false
+DELETE=false
+
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Scan for reclaimable disk space in development repos.
+Finds node_modules/ and .venv/ directories in repos with no recent commits.
+
+Options:
+  --source DIR      Root directory to scan (default: ~/Developer)
+  --age-days N      Consider repos stale after N days without commits (default: 30)
+  --delete          Actually delete stale directories (default: report only)
+  --dry-run         Alias for report-only mode (the default)
+  -h, --help        Show this help
+EOF
+}
+
+log()  { printf "\033[1;34m→\033[0m %s\n" "$*"; }
+warn() { printf "\033[1;33m⚠\033[0m %s\n" "$*"; }
+ok()   { printf "\033[1;32m✓\033[0m %s\n" "$*"; }
+dim()  { printf "\033[2m  %s\033[0m\n" "$*"; }
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --source)    SOURCE="$2"; shift 2 ;;
+        --age-days)  AGE_DAYS="$2"; shift 2 ;;
+        --delete)    DELETE=true; shift ;;
+        --dry-run)   DRY_RUN=true; shift ;;
+        -h|--help)   usage; exit 0 ;;
+        *) echo "Unknown option: $1"; usage; exit 1 ;;
+    esac
+done
+
+human_size() {
+    python3 -c "
+s=$1
+for u in ('B','KB','MB','GB'):
+    if s < 1024: print(f'{s:.0f} {u}'); break
+    s /= 1024
+"
+}
+
+cutoff_epoch=$(date -v-${AGE_DAYS}d +%s 2>/dev/null || date -d "${AGE_DAYS} days ago" +%s 2>/dev/null)
+
+total_reclaimable=0
+total_deleted=0
+stale_count=0
+active_count=0
+
+log "Scanning $SOURCE (stale threshold: $AGE_DAYS days) ..."
+echo ""
+
+printf "%-35s %10s  %-12s  %s\n" "REPO" "SIZE" "LAST COMMIT" "STATUS"
+printf "%-35s %10s  %-12s  %s\n" "----" "----" "-----------" "------"
+
+for repo_dir in "$SOURCE"/*/; do
+    [[ -d "$repo_dir/.git" ]] || continue
+
+    repo_name="$(basename "$repo_dir")"
+
+    # Get last commit epoch
+    last_commit_epoch=$(git -C "$repo_dir" log -1 --format="%ct" 2>/dev/null || echo "0")
+    last_commit_date=$(git -C "$repo_dir" log -1 --format="%cs" 2>/dev/null || echo "never")
+
+    repo_reclaimable=0
+    targets=()
+
+    for target in node_modules .venv venv; do
+        target_dir="$repo_dir$target"
+        if [[ -d "$target_dir" ]]; then
+            size_bytes=$(du -sk "$target_dir" 2>/dev/null | cut -f1)
+            size_bytes=$((size_bytes * 1024))
+            repo_reclaimable=$((repo_reclaimable + size_bytes))
+            targets+=("$target($(human_size $size_bytes))")
+        fi
+    done
+
+    # Skip repos with nothing to reclaim
+    [[ ${#targets[@]} -eq 0 ]] && continue
+
+    is_stale=false
+    if [[ "$last_commit_epoch" -lt "$cutoff_epoch" ]]; then
+        is_stale=true
+        stale_count=$((stale_count + 1))
+    else
+        active_count=$((active_count + 1))
+    fi
+
+    status_label="active"
+    if $is_stale; then
+        status_label="STALE"
+        total_reclaimable=$((total_reclaimable + repo_reclaimable))
+    fi
+
+    printf "%-35s %10s  %-12s  %s\n" \
+        "$repo_name" \
+        "$(human_size $repo_reclaimable)" \
+        "$last_commit_date" \
+        "$status_label  ${targets[*]}"
+
+    # Delete if requested and stale
+    if $DELETE && $is_stale; then
+        for target in node_modules .venv venv; do
+            target_dir="$repo_dir$target"
+            if [[ -d "$target_dir" ]]; then
+                rm -rf "$target_dir"
+                total_deleted=$((total_deleted + 1))
+                ok "Deleted $repo_name/$target"
+            fi
+        done
+    fi
+done
+
+echo ""
+echo "─────────────────────────────────────────────"
+echo "Stale repos with reclaimable deps: $stale_count"
+echo "Active repos with deps:            $active_count"
+echo "Total reclaimable (stale only):    $(human_size $total_reclaimable)"
+
+if $DELETE; then
+    echo "Directories deleted:               $total_deleted"
+else
+    echo ""
+    dim "Run with --delete to remove stale directories"
+    dim "Use --age-days N to adjust the staleness threshold"
+fi
