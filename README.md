@@ -1,6 +1,17 @@
-# helpful-resources
+# lukes-toolbox
 
-A collection of reusable tools and scripts.
+A collection of reusable developer scripts.
+
+## Setup
+
+Add the toolbox to your PATH (one-time):
+
+```bash
+echo 'export PATH="$HOME/Developer/lukes-toolbox:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**Prerequisites:** Python 3.10+ (for `har-meta.py`).
 
 ## Tools
 
