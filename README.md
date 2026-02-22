@@ -15,6 +15,23 @@ source ~/.zshrc
 
 ## Tools
 
+### github-account-routing.zsh
+
+Dual-account GitHub routing helpers for zsh. Routes `gh` and `copilot` to the right account token based on current repo owner.
+
+Load in `~/.zshrc`:
+
+```zsh
+source "$HOME/Developer/lukes-toolbox/github-account-routing.zsh"
+```
+
+Key commands:
+
+- `github-which-account`
+- `gh-personal`, `gh-work`
+- `copilot-personal`, `copilot-work`, `copilot-ms`
+- `github-auto <command>`
+
 ### har-offload.sh
 
 Move large files (HAR traces by default) to an external drive, leaving symlinks behind so repos still work transparently. Generates companion metadata files and a searchable manifest.
