@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# Show git status summary for all repos under ~/Developer.
+#
+# Usage:
+#   git-status-all              Show all repos with changes or ahead/behind
+#   git-status-all --all        Show all repos including clean ones
+#   git-status-all --fetch      Fetch remotes first (slower, accurate ahead/behind)
+
+set -euo pipefail
+
+DEV_DIR="$HOME/Developer"
+SHOW_ALL=false
+DO_FETCH=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --all|-a)   SHOW_ALL=true ;;
+    --fetch|-f) DO_FETCH=true ;;
+    --help|-h)
+      echo "Usage: git-status-all [--all] [--fetch]"
+      echo "  --all    Show all repos, including clean ones"
+      echo "  --fetch  Fetch remotes first (slower but accurate ahead/behind)"
+      exit 0
+      ;;
+    *) echo "Unknown option: $arg (try --help)"; exit 1 ;;
+  esac
+done
+
+bold()  { printf '\033[1m%s\033[0m' "$*"; }
+dim()   { printf '\033[2m%s\033[0m' "$*"; }
+green() { printf '\033[32m%s\033[0m' "$*"; }
+yellow(){ printf '\033[33m%s\033[0m' "$*"; }
+red()   { printf '\033[31m%s\033[0m' "$*"; }
+
+clean_count=0
+dirty_count=0
+
+for git_dir in "$DEV_DIR"/*/.git; do
+  repo_dir="${git_dir%/.git}"
+  repo_name="${repo_dir##*/}"
+
+  cd "$repo_dir" || continue
+
+  # Current branch
+  branch=$(git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "detached")
+
+  # Fetch if requested
+  if [ "$DO_FETCH" = true ]; then
+    git fetch --quiet 2>/dev/null || true
+  fi
+
+  # Ahead/behind
+  upstream=$(git rev-parse --abbrev-ref "@{upstream}" 2>/dev/null) || upstream=""
+  ahead=0
+  behind=0
+  if [ -n "$upstream" ]; then
+    counts=$(git rev-list --left-right --count HEAD..."$upstream" 2>/dev/null) || counts="0	0"
+    ahead=$(echo "$counts" | awk '{print $1}')
+    behind=$(echo "$counts" | awk '{print $2}')
+  fi
+
+  # Working tree status
+  staged=$(git diff --cached --numstat 2>/dev/null | wc -l | tr -d ' ')
+  unstaged=$(git diff --numstat 2>/dev/null | wc -l | tr -d ' ')
+  untracked=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
+
+  # Build status line
+  has_changes=false
+  status_parts=()
+
+  if [ "$ahead" -gt 0 ]; then
+    status_parts+=("$(green "↑${ahead}")")
+    has_changes=true
+  fi
+  if [ "$behind" -gt 0 ]; then
+    status_parts+=("$(red "↓${behind}")")
+    has_changes=true
+  fi
+  if [ "$staged" -gt 0 ]; then
+    status_parts+=("$(green "●${staged}")")
+    has_changes=true
+  fi
+  if [ "$unstaged" -gt 0 ]; then
+    status_parts+=("$(yellow "✎${unstaged}")")
+    has_changes=true
+  fi
+  if [ "$untracked" -gt 0 ]; then
+    status_parts+=("$(dim "?${untracked}")")
+    has_changes=true
+  fi
+
+  if [ "$has_changes" = true ]; then
+    dirty_count=$((dirty_count + 1))
+    status_str=$(IFS=' '; echo "${status_parts[*]}")
+    printf "  %-30s %-15s %s\n" "$(bold "$repo_name")" "$(dim "$branch")" "$status_str"
+  elif [ "$SHOW_ALL" = true ]; then
+    clean_count=$((clean_count + 1))
+    printf "  %-30s %-15s %s\n" "$repo_name" "$(dim "$branch")" "$(green "✔")"
+  else
+    clean_count=$((clean_count + 1))
+  fi
+done
+
+echo ""
+if [ "$SHOW_ALL" = true ]; then
+  dim "  ${dirty_count} dirty, ${clean_count} clean"; echo ""
+else
+  dim "  ${dirty_count} dirty, ${clean_count} clean (use --all to show clean repos)"; echo ""
+fi

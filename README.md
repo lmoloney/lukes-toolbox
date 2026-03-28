@@ -1,88 +1,46 @@
 # lukes-toolbox
 
-A collection of reusable developer scripts.
+A collection of reusable developer scripts and utilities.
 
 ## Setup
 
 Add the toolbox to your PATH (one-time):
 
 ```bash
-echo 'export PATH="$HOME/Developer/lukes-toolbox:$PATH"' >> ~/.zshrc
+echo 'export PATH="$HOME/.local/bin:$HOME/Developer/lukes-toolbox/utils:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-**Prerequisites:** Python 3.10+ (for `har-meta.py`).
+**Prerequisites:** Python 3.10+, chezmoi, gh CLI.
 
-## Tools
+## Structure
 
-### github-account-routing.zsh
+```
+lukes-toolbox/
+├── utils/                    # Executable scripts (on PATH)
+│   ├── chezmoi-sync          # Sync chezmoi with live system state
+│   ├── dev-cleanup           # Find stale node_modules/ and .venv/
+│   ├── diary-commit          # → symlink to dev-diary/diary-commit.sh
+│   ├── git-status-all        # Git status for all ~/Developer repos
+│   ├── har-meta              # Extract metadata from HAR files
+│   └── har-offload           # Move HARs to external storage
+├── github-account-routing.zsh  # → symlink to utils/ (sourced by .zshrc)
+├── eventhubs/                # Azure Event Hub reader
+├── fabric-sqlendpoint-dotnet/# Fabric SQL endpoint sample
+├── setup/                    # Machine bootstrap scripts
+└── sql/                      # Reusable SQL snippets
+```
 
-Dual-account GitHub routing helpers for zsh. Routes `gh` and `copilot` to the right account token based on current repo owner.
+See [`utils/README.md`](utils/README.md) for detailed usage of each script.
 
-Load in `~/.zshrc`:
+## Shell integration
+
+### GitHub account routing
+
+Dual-account GitHub routing (personal + work). Sourced by `.zshrc`:
 
 ```zsh
 source "$HOME/Developer/lukes-toolbox/github-account-routing.zsh"
 ```
 
-Key commands:
-
-- `github-which-account`
-- `gh-personal`, `gh-work`
-- `copilot-personal`, `copilot-work`, `copilot-ms`
-- `github-auto <command>`
-
-### har-offload.sh
-
-Move large files (HAR traces by default) to an external drive, leaving symlinks behind so repos still work transparently. Generates companion metadata files and a searchable manifest.
-
-```bash
-# Dry run — see what would be moved
-./har-offload.sh --dry-run
-
-# Move all .har files from ~/Developer to JetDrive
-./har-offload.sh
-
-# Custom source, destination, and file pattern
-./har-offload.sh --source ~/Projects --dest /Volumes/External/archive --pattern "*.pcap"
-
-# Restore — move files back from the archive
-./har-offload.sh --restore
-```
-
-**What it does:**
-1. Finds all files matching `--pattern` (default: `*.har`) under `--source`
-2. Moves them to `--dest` preserving directory structure
-3. Creates symlinks at the original locations
-4. Generates `.har.md` companion files with metadata (domains, request counts, how to recapture)
-5. Maintains a `manifest.json` on the destination drive for searching
-
-### har-meta.py
-
-Extract metadata from HAR files — domains captured, request counts, methods, status codes, and time range.
-
-```bash
-# JSON output
-python3 har-meta.py trace.har
-
-# Markdown companion file
-python3 har-meta.py trace.har --format markdown --archive-path /Volumes/JetDrive/archive/trace.har -o trace.har.md
-```
-
-### dev-cleanup.sh
-
-Scan for reclaimable disk space in development repos. Finds `node_modules/` and `.venv/` directories in repos that haven't been committed to recently.
-
-```bash
-# Report what can be reclaimed (default: repos stale >30 days)
-./dev-cleanup.sh
-
-# Custom staleness threshold
-./dev-cleanup.sh --age-days 90
-
-# Actually delete stale directories
-./dev-cleanup.sh --delete
-
-# Scan a different directory
-./dev-cleanup.sh --source ~/Projects --age-days 60 --delete
-```
+Key commands: `github-which-account`, `gh-personal`, `gh-work`, `copilot-personal`, `copilot-work`, `github-auto <command>`

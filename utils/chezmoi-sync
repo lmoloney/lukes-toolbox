@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# Sync chezmoi with live system state, review changes, then apply.
+#
+# Usage:
+#   chezmoi-sync              Interactive: re-add → diff → confirm → apply
+#   chezmoi-sync --commit     Also commit and push dotfiles after apply
+#   chezmoi-sync --status     Just show what's drifted, no changes
+#
+# Files listed in LIVE_IS_TRUTH are re-added to chezmoi source first,
+# because they're managed by external tools that modify them directly.
+
+set -euo pipefail
+
+# ── Config ───────────────────────────────────────────────────────────────────
+# Files where the live disk state is authoritative.
+# These get `chezmoi re-add`'d before diffing.
+LIVE_IS_TRUTH=(
+  ~/.copilot/mcp-config.json
+  ~/.copilot/config.json
+)
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+bold() { printf '\033[1m%s\033[0m' "$*"; }
+dim()  { printf '\033[2m%s\033[0m' "$*"; }
+green(){ printf '\033[32m%s\033[0m' "$*"; }
+red()  { printf '\033[31m%s\033[0m' "$*"; }
+
+run() {
+  echo "  ▶ $*"
+  "$@"
+}
+
+# ── Status mode ──────────────────────────────────────────────────────────────
+
+do_status() {
+  echo ""
+  bold "── Chezmoi status ──"; echo ""
+  local status
+  status=$(chezmoi status 2>&1) || true
+  if [ -z "$status" ]; then
+    echo "  $(green "✔") Everything in sync."
+  else
+    echo "$status" | while IFS= read -r line; do
+      echo "  $line"
+    done
+    echo ""
+    dim "  Codes: A=add D=delete M=modify (1st=source, 2nd=target)"; echo ""
+  fi
+  echo ""
+}
+
+# ── Re-add live-is-truth files ───────────────────────────────────────────────
+
+do_readd() {
+  local any_readded=false
+  echo ""
+  bold "── Re-adding live-is-truth files ──"; echo ""
+  for f in "${LIVE_IS_TRUTH[@]}"; do
+    expanded="${f/#\~/$HOME}"
+    if [ ! -f "$expanded" ]; then
+      echo "  $(dim "skip") $f (not found)"
+      continue
+    fi
+    # Only re-add if chezmoi is actually tracking it
+    local rel_path="${expanded#$HOME/}"
+    if chezmoi managed --include=files | grep -qxF "$rel_path" 2>/dev/null; then
+      local src
+      src=$(chezmoi source-path "$expanded" 2>/dev/null) || true
+      if [[ "$src" == *.tmpl ]]; then
+        # Template files can't be re-added — convert to plain file
+        echo "  $(dim "note") $f is a template; converting to plain file"
+        run chezmoi forget --force "$expanded"
+        run chezmoi add "$expanded"
+      else
+        run chezmoi re-add "$expanded"
+      fi
+      any_readded=true
+    else
+      echo "  $(dim "skip") $f (not managed by chezmoi)"
+    fi
+  done
+  if [ "$any_readded" = false ]; then
+    echo "  $(dim "Nothing to re-add.")"
+  fi
+  echo ""
+}
+
+# ── Diff and confirm ────────────────────────────────────────────────────────
+
+do_diff_and_apply() {
+  bold "── Changes chezmoi would apply ──"; echo ""
+  local diff_output
+  diff_output=$(chezmoi diff 2>&1) || true
+
+  if [ -z "$diff_output" ]; then
+    echo "  $(green "✔") No changes to apply."
+    echo ""
+    return 1
+  fi
+
+  echo "$diff_output"
+  echo ""
+
+  bold "── Apply these changes? ──"; echo ""
+  read -rp "  [y/N] " answer
+  case "$answer" in
+    [yY]|[yY][eE][sS])
+      echo ""
+      run chezmoi apply
+      echo ""
+      echo "  $(green "✔") Applied."
+      return 0
+      ;;
+    *)
+      echo ""
+      echo "  $(dim "Skipped apply.")"
+      return 1
+      ;;
+  esac
+}
+
+# ── Commit and push ─────────────────────────────────────────────────────────
+
+do_commit() {
+  echo ""
+  bold "── Committing dotfiles ──"; echo ""
+  local status
+  status=$(chezmoi git -- status --short 2>&1) || true
+  if [ -z "$status" ]; then
+    echo "  $(dim "Nothing to commit.")"
+    echo ""
+    return
+  fi
+  echo "  Changed:"
+  echo "$status" | while IFS= read -r line; do
+    echo "    $line"
+  done
+  echo ""
+  run chezmoi git -- add -A
+  run chezmoi git -- commit -m "chezmoi-sync: update dotfiles"
+  run chezmoi git -- push
+  echo ""
+  echo "  $(green "✔") Committed and pushed."
+  echo ""
+}
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+
+COMMIT=false
+
+case "${1:---interactive}" in
+  --status|-s)
+    do_status
+    exit 0
+    ;;
+  --commit|-c)
+    COMMIT=true
+    ;;
+  --help|-h)
+    echo "Usage:"
+    echo "  chezmoi-sync              Interactive: re-add → diff → confirm → apply"
+    echo "  chezmoi-sync --commit|-c  Also commit and push dotfiles after apply"
+    echo "  chezmoi-sync --status|-s  Just show what's drifted"
+    exit 0
+    ;;
+  --interactive)
+    ;;
+  *)
+    echo "Unknown option: $1 (try --help)"
+    exit 1
+    ;;
+esac
+
+do_readd
+applied=false
+do_diff_and_apply && applied=true
+
+if [ "$COMMIT" = true ]; then
+  do_commit
+elif [ "$applied" = true ]; then
+  echo ""
+  dim "  Tip: run 'chezmoi-sync --commit' to also commit and push."; echo ""
+fi
