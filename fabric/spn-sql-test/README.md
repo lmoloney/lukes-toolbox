@@ -39,7 +39,7 @@ python sql-spn-test.py
 | `SQL_ENDPOINT` | SQL Analytics Endpoint hostname (e.g., `abc123.datawarehouse.fabric.microsoft.com`) |
 | `DATABASE_NAME` | Display name of the Lakehouse or Warehouse (used as `Initial Catalog`) |
 | `SCHEMA_NAME` | Schema containing the test table (typically `dbo`) |
-| `TABLE_NAME` | Table to query in steps 5 and 7 |
+| `TABLE_NAME` | Table to query in steps 8 and 10 |
 
 > **⚠️ Finding SPN2_OBJECT_ID:** Go to **Entra ID → Enterprise Applications** (not App Registrations!) → search for your app → copy the **Object ID**. This is the *service principal* object ID. The Object ID shown on the App Registration page is a *different GUID* and will cause `PrincipalNotFound` errors.
 
@@ -64,16 +64,17 @@ python sql-spn-test.py
 ============================================================
 SPN SQL Access E2E Test
 ============================================================
+  📄 Log: _logs/20260420201630.log
   ℹ️  Tenant:    <tenant-id>
   ℹ️  Workspace: <workspace-id>
   ...
 
 ────────────────────────────────────────────────────────────
-Step 1/7: SPN2 attempts to list workspace items (expect 403)
+Step 1/10: Verify SPN1 is Admin on the workspace
 ────────────────────────────────────────────────────────────
-  ℹ️  SPN2 token acquired for Fabric API
-  ℹ️  GET .../items → 403
-  ✅ PASS — SPN2 correctly denied access before role assignment
+  ℹ️  SPN1 token acquired for Fabric API
+  ℹ️  GET ...roleAssignments → 200
+  ✅ PASS — SPN1 confirmed as Admin (principal: ..., appId: ...)
 
 ...
 
@@ -87,13 +88,17 @@ Summary
   ✅ Step 5
   ✅ Step 6
   ✅ Step 7
+  ✅ Step 8
+  ✅ Step 9
+  ✅ Step 10
 
 🎉 All steps passed — SPN2 has been granted SQL access successfully.
 ```
 
 ## Notes
 
-- The script uses [`mssql-python`](https://github.com/microsoft/mssql-python) for SQL connections with native `ActiveDirectoryServicePrincipal` authentication — no ODBC driver installation required.
+- The script uses [`mssql-python`](https://github.com/microsoft/mssql-python) for SQL connections with access token authentication — no separate ODBC driver installation required.
 - The script does **not** clean up after itself (SPN2 remains a Viewer, GRANT remains). Run cleanup manually or add a `--cleanup` flag in future.
-- Role propagation after step 2 may take a few seconds — the script retries with exponential backoff.
-- SPN2's SQL principal name is discovered dynamically via `USER_NAME()` in step 4, so the correct identifier is used in the GRANT.
+- Role propagation after step 5 may take a few seconds — the script retries with exponential backoff.
+- The GRANT in step 9 uses `SPN2_NAME` (display name) from the `.env` file.
+- Full HTTP request/response and SQL statement logging is written to `_logs/` (gitignored).
