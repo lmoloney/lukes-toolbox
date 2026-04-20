@@ -403,7 +403,24 @@ def step5_spn1_add_spn2_viewer(cfg: dict) -> bool:
     token = get_fabric_token(cfg["TENANT_ID"], cfg["SPN1_CLIENT_ID"], cfg["SPN1_CLIENT_SECRET"])
     info_msg("SPN1 token acquired for Fabric API")
 
+    # Check if SPN2 already has a role assignment
     url = f"{FABRIC_API_BASE}/workspaces/{cfg['WORKSPACE_ID']}/roleAssignments"
+    resp = http_get(url, headers=fabric_headers(token), timeout=30)
+    if resp.status_code == 200:
+        assignments = resp.json().get("value", [])
+        for a in assignments:
+            p = a.get("principal", {})
+            spn_details = p.get("servicePrincipalDetails", {})
+            if p.get("id") == cfg["SPN2_OBJECT_ID"] or spn_details.get("aadAppId") == cfg["SPN2_CLIENT_ID"]:
+                role = a.get("role", "?")
+                info_msg(f"SPN2 already has role '{role}' on this workspace")
+                if role == "Viewer":
+                    pass_msg("SPN2 is already Viewer — nothing to do")
+                else:
+                    info_msg(f"SPN2 has '{role}' (not Viewer) — continuing anyway")
+                return True
+
+    # Not found — add as Viewer
     payload = {
         "principal": {
             "id": cfg["SPN2_OBJECT_ID"],
