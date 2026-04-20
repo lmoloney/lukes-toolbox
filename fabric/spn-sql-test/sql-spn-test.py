@@ -628,9 +628,6 @@ def main():
 
     # Step 3 — verify SPN1 has Directory.Read.All and can resolve SPN2
     results[3] = step3_check_spn1_directory_read(cfg)
-    if not results[3]:
-        print("\n❌ Cannot continue — SPN1 cannot read directory / resolve SPN2.")
-        sys.exit(1)
 
     # Step 4
     results[4] = step4_spn2_list_items_expect_403(cfg)
