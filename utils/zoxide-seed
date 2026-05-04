@@ -94,7 +94,7 @@ fi
 if [[ -d "$SOURCE" ]]; then
     log "Scanning project directories: $SOURCE"
     count_before=${#candidates[@]}
-    for dir in "$SOURCE"/*/; do
+    for dir in "$SOURCE"/{personal,msft}/*/; do
         [[ -d "$dir" ]] || continue
         resolved="$(cd "$dir" && pwd -P)"
         candidates["$resolved"]=1

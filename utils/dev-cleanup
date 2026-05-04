@@ -63,7 +63,7 @@ echo ""
 printf "%-35s %10s  %-12s  %s\n" "REPO" "SIZE" "LAST COMMIT" "STATUS"
 printf "%-35s %10s  %-12s  %s\n" "----" "----" "-----------" "------"
 
-for repo_dir in "$SOURCE"/*/; do
+for repo_dir in "$SOURCE"/{personal,msft,archive}/*/; do
     [[ -d "$repo_dir/.git" ]] || continue
 
     repo_name="$(basename "$repo_dir")"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Show git status summary for all repos under ~/Developer.
+# Show git status summary for all repos under ~/Developer/{personal,msft}.
 #
 # Usage:
 #   git-status-all              Show all repos with changes or ahead/behind
@@ -80,7 +80,7 @@ printf "  %s %s %s %s %s %s %s  %s  %s\n" \
 printf "  %s %s %s %s %s %s %s  %s  %s\n" \
   "$header_sep_repo" "$header_sep_branch" "─────" "─────" "─────" "─────" "─────" "──────────" "──────────────────────────────"
 
-for git_dir in "$DEV_DIR"/*/.git; do
+for git_dir in "$DEV_DIR"/{personal,msft}/*/.git; do
   repo_dir="${git_dir%/.git}"
   repo_name="${repo_dir##*/}"
 
