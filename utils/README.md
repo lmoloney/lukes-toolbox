@@ -1,6 +1,6 @@
 # utils/
 
-Developer workflow scripts, all on `$PATH` via `~/Developer/lukes-toolbox/utils`.
+Developer workflow scripts, all on `$PATH` via `~/Developer/personal/lukes-toolbox/utils`.
 
 | Script | Description |
 |--------|-------------|

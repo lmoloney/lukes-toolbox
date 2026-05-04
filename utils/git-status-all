@@ -32,8 +32,53 @@ green() { printf '\033[32m%s\033[0m' "$*"; }
 yellow(){ printf '\033[33m%s\033[0m' "$*"; }
 red()   { printf '\033[31m%s\033[0m' "$*"; }
 
+# Truncate string to max visible length, append … if cut
+trunc() {
+  local str="$1" max="$2"
+  if [ "${#str}" -gt "$max" ]; then
+    echo "${str:0:$((max - 1))}…"
+  else
+    echo "$str"
+  fi
+}
+
+# Pad a colored string to a fixed visible width
+# Usage: cpad <visible_width> <colored_string>
+cpad() {
+  local width="$1" str="$2"
+  # Strip ANSI codes to measure visible length
+  local plain
+  plain=$(printf '%s' "$str" | sed $'s/\033\\[[0-9;]*m//g')
+  local visible=${#plain}
+  local pad=$((width - visible))
+  if [ "$pad" -gt 0 ]; then
+    printf '%s%*s' "$str" "$pad" ""
+  else
+    printf '%s' "$str"
+  fi
+}
+
+MAX_REPO=24
+MAX_BRANCH=20
 clean_count=0
 dirty_count=0
+
+# Table header (use cpad for consistent alignment)
+printf "\n"
+header_sep_repo=$(printf '─%.0s' $(seq 1 $MAX_REPO))
+header_sep_branch=$(printf '─%.0s' $(seq 1 $MAX_BRANCH))
+printf "  %s %s %s %s %s %s %s  %s  %s\n" \
+  "$(cpad $MAX_REPO "$(bold "Repo")")" \
+  "$(cpad $MAX_BRANCH "$(bold "Branch")")" \
+  "$(cpad 5 "$(bold "↑")")" \
+  "$(cpad 5 "$(bold "↓")")" \
+  "$(cpad 5 "$(bold "●")")" \
+  "$(cpad 5 "$(bold "✎")")" \
+  "$(cpad 5 "$(bold "?")")" \
+  "$(cpad 10 "$(bold "Last Push")")" \
+  "$(bold "Remote")"
+printf "  %s %s %s %s %s %s %s  %s  %s\n" \
+  "$header_sep_repo" "$header_sep_branch" "─────" "─────" "─────" "─────" "─────" "──────────" "──────────────────────────────"
 
 for git_dir in "$DEV_DIR"/*/.git; do
   repo_dir="${git_dir%/.git}"
@@ -64,41 +109,54 @@ for git_dir in "$DEV_DIR"/*/.git; do
   unstaged=$(git diff --numstat 2>/dev/null | wc -l | tr -d ' ')
   untracked=$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')
 
-  # Build status line
-  has_changes=false
-  status_parts=()
+  # Last push date — most recent commit on the remote tracking branch
+  last_push=""
+  if [ -n "$upstream" ]; then
+    last_push=$(git log -1 --format="%cd" --date=format:"%Y-%m-%d" "$upstream" 2>/dev/null) || last_push=""
+  fi
+  [ -z "$last_push" ] && last_push="-"
 
-  if [ "$ahead" -gt 0 ]; then
-    status_parts+=("$(green "↑${ahead}")")
-    has_changes=true
-  fi
-  if [ "$behind" -gt 0 ]; then
-    status_parts+=("$(red "↓${behind}")")
-    has_changes=true
-  fi
-  if [ "$staged" -gt 0 ]; then
-    status_parts+=("$(green "●${staged}")")
-    has_changes=true
-  fi
-  if [ "$unstaged" -gt 0 ]; then
-    status_parts+=("$(yellow "✎${unstaged}")")
-    has_changes=true
-  fi
-  if [ "$untracked" -gt 0 ]; then
-    status_parts+=("$(dim "?${untracked}")")
-    has_changes=true
-  fi
+  # Remote URL (short form)
+  remote_url=$(git remote get-url origin 2>/dev/null) || remote_url=""
+  # Strip to org/repo from GitHub URLs
+  remote_url=$(echo "$remote_url" | sed -E 's|https://github\.com/||; s|git@github\.com:||; s|\.git$||')
+
+  has_changes=false
+  [[ "$ahead" -gt 0 || "$behind" -gt 0 || "$staged" -gt 0 || "$unstaged" -gt 0 || "$untracked" -gt 0 ]] && has_changes=true
+
+  # Truncate names for alignment
+  display_repo=$(trunc "$repo_name" "$MAX_REPO")
+  display_branch=$(trunc "$branch" "$MAX_BRANCH")
+
+  # Format cells with color (use ASCII . for empty to avoid multibyte issues)
+  [[ "$ahead" -gt 0 ]]     && fmt_ahead=$(green "$ahead")        || fmt_ahead=$(dim ".")
+  [[ "$behind" -gt 0 ]]    && fmt_behind=$(red "$behind")        || fmt_behind=$(dim ".")
+  [[ "$staged" -gt 0 ]]    && fmt_staged=$(green "$staged")      || fmt_staged=$(dim ".")
+  [[ "$unstaged" -gt 0 ]]  && fmt_unstaged=$(yellow "$unstaged") || fmt_unstaged=$(dim ".")
+  [[ "$untracked" -gt 0 ]] && fmt_untracked=$(dim "$untracked")  || fmt_untracked=$(dim ".")
 
   if [ "$has_changes" = true ]; then
     dirty_count=$((dirty_count + 1))
-    status_str=$(IFS=' '; echo "${status_parts[*]}")
-    printf "  %-30s %-15s %s\n" "$(bold "$repo_name")" "$(dim "$branch")" "$status_str"
   elif [ "$SHOW_ALL" = true ]; then
     clean_count=$((clean_count + 1))
-    printf "  %-30s %-15s %s\n" "$repo_name" "$(dim "$branch")" "$(green "✔")"
+    fmt_ahead=$(green "✔")
+    fmt_behind="" fmt_staged="" fmt_unstaged="" fmt_untracked=""
   else
     clean_count=$((clean_count + 1))
+    continue
   fi
+
+  # Print row using cpad for reliable alignment
+  printf "  %s %s %s %s %s %s %s  %s  %s\n" \
+    "$(cpad $MAX_REPO "$(bold "$display_repo")")" \
+    "$(cpad $MAX_BRANCH "$(dim "$display_branch")")" \
+    "$(cpad 5 "$fmt_ahead")" \
+    "$(cpad 5 "$fmt_behind")" \
+    "$(cpad 5 "$fmt_staged")" \
+    "$(cpad 5 "$fmt_unstaged")" \
+    "$(cpad 5 "$fmt_untracked")" \
+    "$(cpad 10 "$(dim "$last_push")")" \
+    "$(dim "$remote_url")"
 done
 
 echo ""
@@ -107,3 +165,5 @@ if [ "$SHOW_ALL" = true ]; then
 else
   dim "  ${dirty_count} dirty, ${clean_count} clean (use --all to show clean repos)"; echo ""
 fi
+echo ""
+dim "  ↑ ahead  ↓ behind  ● staged  ✎ modified  ? untracked"; echo ""
