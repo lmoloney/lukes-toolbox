@@ -15,11 +15,8 @@ PORT="${EDGE_CDP_PORT:-9222}"
 
 if [[ -n "${EDGE_CDP_HOST:-}" ]]; then
     HOST="$EDGE_CDP_HOST"
-elif grep -qi microsoft /proc/version 2>/dev/null; then
-    # Running in WSL — resolve Windows host IP
-    HOST=$(ip route show default | awk '{print $3}')
 else
-    # Not WSL (native Linux, Mac, etc.) — assume localhost
+    # localhost works for WSL2 (localhostForwarding) and native Linux/Mac
     HOST="localhost"
 fi
 
