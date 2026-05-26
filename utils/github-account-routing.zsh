@@ -250,6 +250,27 @@ __copilot_startup_tip() {
   fi
 }
 
+# Populate the global array __copilot_ext_allow_flags with --allow-tool flags for every
+# user-scoped extension installed under ~/.copilot/extensions/. Lets `copilot` skip the
+# per-repo "Allow extension X?" prompt for extensions we trust by virtue of having
+# installed them. Rules for extensions that aren't loaded are inert (no error, no prompt).
+# Scope: ONLY user:* extensions. project:* extensions still get the per-repo prompt by
+# design — any repo could ship arbitrary code.
+__copilot_extension_allow_flags() {
+  typeset -ga __copilot_ext_allow_flags
+  __copilot_ext_allow_flags=()
+  local d
+  local -a names
+  for d in $HOME/.copilot/extensions/*(/N); do
+    names+=("${d:t}")
+    __copilot_ext_allow_flags+=("--allow-tool=extension-permission-access(user:${d:t})")
+  done
+  if (( ${#names} > 0 )) && [[ -z "${__COPILOT_EXT_TIP_SHOWN:-}" ]] && [[ -t 2 ]]; then
+    export __COPILOT_EXT_TIP_SHOWN=1
+    echo "[copilot] auto-approving user extensions: ${(j:, :)names}" >&2
+  fi
+}
+
 # Show how the wrapper would route a gh command.
 #   github-which-account                       # routes for the current dir
 #   github-which-account repo clone gim-home/m # routes as if running that cmd
@@ -305,7 +326,8 @@ copilot-personal() {
     return 1
   }
   __copilot_startup_tip
-  GH_TOKEN="$token" command copilot "$@"
+  __copilot_extension_allow_flags
+  GH_TOKEN="$token" command copilot "${__copilot_ext_allow_flags[@]}" "$@"
 }
 
 copilot-work() {
@@ -315,7 +337,8 @@ copilot-work() {
     return 1
   }
   __copilot_startup_tip
-  GH_TOKEN="$token" command copilot "$@"
+  __copilot_extension_allow_flags
+  GH_TOKEN="$token" command copilot "${__copilot_ext_allow_flags[@]}" "$@"
 }
 
 # Backward-compatible alias.
@@ -326,7 +349,8 @@ copilot-ms() {
 copilot() {
   if [[ -n "${GH_TOKEN:-}" ]]; then
     __copilot_startup_tip
-    command copilot "$@"
+    __copilot_extension_allow_flags
+    command copilot "${__copilot_ext_allow_flags[@]}" "$@"
     return $?
   fi
   local user token
@@ -336,7 +360,8 @@ copilot() {
     return 1
   }
   __copilot_startup_tip
-  GH_TOKEN="$token" command copilot "$@"
+  __copilot_extension_allow_flags
+  GH_TOKEN="$token" command copilot "${__copilot_ext_allow_flags[@]}" "$@"
 }
 
 github-auto() {
