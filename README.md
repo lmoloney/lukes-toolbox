@@ -25,6 +25,8 @@ lukes-toolbox/
 │   ├── har-meta              # Extract metadata from HAR files
 │   ├── har-offload           # Move HARs to external storage
 │   └── repo-setup            # Apply standard labels + branch protection
+├── tests/                    # Self-contained zsh test harness
+│   └── github-account-routing.test.zsh
 ├── github-account-routing.zsh  # → symlink to utils/ (sourced by .zshrc)
 ├── eventhubs/                # Azure Event Hub reader
 ├── fabric-sqlendpoint-dotnet/# Fabric SQL endpoint sample
@@ -66,4 +68,21 @@ Dual-account GitHub routing (personal + work). Sourced by `.zshrc`:
 source "$HOME/Developer/personal/lukes-toolbox/github-account-routing.zsh"
 ```
 
-Key commands: `github-which-account`, `gh-personal`, `gh-work`, `copilot-personal`, `copilot-work`, `github-auto <command>`
+**Resolution order:** `args → git remote → path → GITHUB_PERSONAL_USER`.
+
+1. **Args** — explicit `-R OWNER/REPO`, `--repo OWNER/REPO`, `gh repo {clone,view,fork,...} OWNER/REPO`, GitHub URLs, and owner-bearing `gh api` endpoints (`repos/OWNER/REPO`, `orgs/OWNER`, `users/OWNER`). Bare repo names like `gh repo create foo` are **not** parsed as owners.
+2. **Git remote** — `remote.origin.url` of the cwd. A personal repo cloned inside `~/Developer/msft/` still routes to personal because remote wins over path.
+3. **Path** — directories listed in `GITHUB_WORK_PATHS` / `GITHUB_PERSONAL_PATHS` (defaults: `~/Developer/msft` → work). Last-resort hint when args + remote yield no known owner.
+4. **Default** — `GITHUB_PERSONAL_USER`.
+
+Setting `GH_TOKEN` in the environment short-circuits the wrapper and uses that token verbatim.
+
+```zsh
+github-which-account                        # diagnose routing for current dir
+github-which-account repo clone gim-home/m  # diagnose as if running that cmd
+github-which-account pr list -R lmoloney/x  # check -R routing
+```
+
+Key commands: `github-which-account`, `gh-personal`, `gh-work`, `copilot-personal`, `copilot-work`, `github-auto <command>`.
+
+Run the test harness with `zsh tests/github-account-routing.test.zsh` after any change.
