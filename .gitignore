@@ -6,3 +6,5 @@ obj/
 bin/
 .DS_Store
 _logs/
+.msal_token_cache.json
+*.msal_token_cache.json
